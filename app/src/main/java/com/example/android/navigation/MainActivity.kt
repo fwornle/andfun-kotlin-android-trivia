@@ -19,32 +19,61 @@ package com.example.android.navigation
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
-import androidx.navigation.Navigation
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDirections
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.NavigationUI
 import com.example.android.navigation.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var appBarConfiguration: AppBarConfiguration
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         @Suppress("UNUSED_VARIABLE")
         val binding = DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main)
+        drawerLayout = binding.drawerLayout
 
-        // fw-210906: crashes the app
-        //val navController = findNavController(this, R.id.myNavHostFragment)
-        // solution inspired from:
+        // fw-210906: crashes the app when replacing the deprecated <fragment> with the recommended
+        // <androidx.fragment.app.FragmentContainerView>:
+        //val navController = findNavController(R.id.myNavHostFragment)
+        //
+        // solution for <androidx.fragment.app.FragmentContainerView> based code
+        // (this also works for <fragment> based code):
+        // [inspired from:]
         // https://stackoverflow.com/questions/53902494/navigation-component-cannot-find-navcontroller
         // ... which refers to
         // https://stackoverflow.com/questions/50502269/illegalstateexception-link-does-not-have-a-navcontroller-set
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.myNavHostFragment) as NavHostFragment
         val navController = navHostFragment.navController
-        NavigationUI.setupActionBarWithNavController(this, navController)
+
+        // configure app bar
+        appBarConfiguration = AppBarConfiguration(navController.graph, drawerLayout)
+
+        // lock drawer layout on all pages/destinations but the start destination
+        navController.addOnDestinationChangedListener {nc: NavController, nd: NavDestination, args: Bundle? ->
+            if (nd.id == nc.graph.startDestination) {
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+            } else {
+                drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+            }
+        }
+
+        // configure drawer layout
+        NavigationUI.setupActionBarWithNavController(this, navController, drawerLayout)
+        NavigationUI.setupWithNavController(binding.navView, navController)
 
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        val navController = this.findNavController(R.id.myNavHostFragment)
-        return navController.navigateUp()
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.myNavHostFragment) as NavHostFragment
+        val navController = navHostFragment.navController
+        return NavigationUI.navigateUp(navController, drawerLayout)
     }
 }
